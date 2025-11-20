@@ -1,0 +1,115 @@
+
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='UTF-8'>
+<title>Member Management v2.3.6</title>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<style>
+body{font-family:Arial;margin:20px;background:#f9f9f9}
+h2{margin-bottom:10px}
+#filters{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.filter-row{display:flex;align-items:center;gap:6px}
+.filter-row input{flex:1;padding:6px;border:1px solid #007bff;border-radius:6px;background:#eef5ff}
+.hide-btn{color:red;font-weight:bold;cursor:pointer;font-size:18px;padding:0 4px}
+table{width:100%;border-collapse:collapse;background:white}
+th,td{border:1px solid #ccc;padding:6px;text-align:left}
+th{background:#007bff;color:white}
+#resetBtn{margin-bottom:12px;padding:6px 10px;background:#ffc107;border:1px solid #ffc107;border-radius:6px;font-weight:bold}
+</style>
+</head>
+<body>
+
+<h2>Member Management v2.3.6</h2>
+
+<b>Upload Excel File:</b><br>
+<input type='file' id='excelFile' accept='.xlsx,.xls'><br><br>
+
+<div id='filters'></div>
+<button id='resetBtn'>Reset Hidden Filters</button>
+
+<table id='table'>
+<thead></thead><tbody></tbody>
+</table>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script>
+let members=[], cols=[];
+let hiddenCols = JSON.parse(localStorage.getItem('hiddenCols')||'[]');
+
+function saveHidden(){ localStorage.setItem('hiddenCols', JSON.stringify(hiddenCols)); }
+
+document.getElementById('resetBtn').onclick = ()=>{
+  hiddenCols=[]; saveHidden(); buildFilters(); render();
+};
+
+document.getElementById('excelFile').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+    const sheet=wb.Sheets[wb.SheetNames[0]];
+    members=XLSX.utils.sheet_to_json(sheet,{defval:''});
+    cols=Object.keys(members[0]);
+    buildFilters();
+    render();
+  };
+  r.readAsArrayBuffer(f);
+});
+
+function buildFilters(){
+  const box=document.getElementById('filters');
+  box.innerHTML='';
+  cols.forEach(c=>{
+    if(hiddenCols.includes(c)) return;
+    const row=document.createElement('div');
+    row.className='filter-row';
+    const inp=document.createElement('input');
+    inp.placeholder=c;
+    inp.dataset.col=c;
+    inp.oninput=render;
+    const x=document.createElement('span');
+    x.textContent='×';
+    x.className='hide-btn';
+    x.onclick=()=>{ hiddenCols.push(c); saveHidden(); buildFilters(); render(); };
+    row.appendChild(inp); row.appendChild(x);
+    box.appendChild(row);
+  });
+}
+
+function render(){
+  const thead=document.querySelector('#table thead');
+  const tbody=document.querySelector('#table tbody');
+  thead.innerHTML=''; tbody.innerHTML='';
+  if(!members.length) return;
+
+  const hr=document.createElement('tr');
+  cols.forEach(c=>{
+    const th=document.createElement('th');
+    th.textContent=c;
+    hr.appendChild(th);
+  });
+  thead.appendChild(hr);
+
+  let filters={};
+  document.querySelectorAll('#filters input').forEach(i=>{
+    filters[i.dataset.col]=i.value.toLowerCase();
+  });
+
+  members.filter(m=>{
+    return Object.keys(filters).every(c=>{
+      return String(m[c]).toLowerCase().includes(filters[c]);
+    });
+  }).forEach(m=>{
+    const tr=document.createElement('tr');
+    cols.forEach(c=>{
+      const td=document.createElement('td');
+      td.textContent=m[c];
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+}
+</script>
+</body>
+</html>
