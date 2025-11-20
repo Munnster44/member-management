@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Member Management — v2.3.6-PWA</title>
+<meta name="theme-color" content="#007bff">
+
+<!-- Manifest will be injected dynamically (GitHub-safe) -->
+<link id="manifestLink" rel="manifest" href="#">
+
+<!-- Local XLSX (external file, cached for offline use) -->
+<script src="xlsx.full.min.js"></script>
+
+<style>
+:root{
+  --primary:#007bff;
+  --primary-dark:#0056b3;
+  --text:#333;
+  --bg:#f9f9f9;
+}
+*{box-sizing:border-box}
+body{
+  font-family:Arial,Helvetica,sans-serif;
+  background:var(--bg);
+  margin:0;
+  padding:0;
+  color:var(--text);
+}
+
+/* ---------------------------------------------------------
+   HEADER (identical visuals to v41, with updated title)
+--------------------------------------------------------- */
+header{
+  background:var(--primary);
+  color:#fff;
+  padding:14px 16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:10px;
+  position:sticky;
+  top:0;
+  z-index:1000;
+}
+header .title{
+  font-size:18px;
+  font-weight:bold;
+}
+header .version{
+  opacity:.9;
+  font-size:14px;
+}
+header .actions button{
+  background:#fff;
+  color:var(--primary);
+  border:0;
+  border-radius:8px;
+  padding:8px 12px;
+  font-weight:bold;
+  cursor:pointer;
+}
+header .actions button:hover{
+  background:#eef5ff;
+}
+
+/* ---------------------------------------------------------
+   LAYOUT
+--------------------------------------------------------- */
+.container{
+  padding:16px;
+  max-width:1100px;
+  margin:0 auto;
+}
+h2{
+  text-align:center;
+  margin:6px 0 2px 0;
+}
+small.helper{
+  display:block;
+  text-align:center;
+  color:#666;
+  margin-bottom:12px;
+}
+
+/* ---------------------------------------------------------
+   INPUTS + BUTTONS
+--------------------------------------------------------- */
+input,button{
+  font-size:1em;
+  padding:6px;
+  margin:4px 0;
+  border-radius:6px;
+  border:1px solid #ccc;
+}
+input:focus{
+  outline:none;
+  border-color:var(--primary);
+  box-shadow:0 0 3px rgba(0,123,255,0.5);
+}
+button{font-weight:bold;cursor:pointer;transition:.2s}
+
+.btn-primary{background:var(--primary);color:#fff;border:1px solid var(--primary)}
+.btn-primary:hover{background:var(--primary-dark)}
+
+.btn-success{background:#28a745;color:#fff;border:1px solid #28a745}
+.btn-danger{background:#dc3545;color:#fff;border:1px solid #dc3545}
+.btn-warning{background:#ffc107;color:#000;border:1px solid #ffc107}
+.btn-secondary{background:#6c757d;color:#fff;border:1px solid #6c757d}
+
+/* ---------------------------------------------------------
+   TABLE (identical to v41)
+--------------------------------------------------------- */
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:10px;
+  background:#fff;
+  border-radius:8px;
+  overflow:hidden;
+}
+th,td{
+  border:1px solid #ddd;
+  padding:8px;
+  text-align:left;
+}
+th{
+  background:var(--primary);
+  color:#fff;
+  position:sticky;
+  top:0;
+}
+tr:nth-child(even){background:#f2f6ff}
+tr:hover{background:#e6f3ff;cursor:pointer}
+
+/* Filters */
+#filters{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-bottom:10px;
+}
+#filters input{
+  flex:1 1 160px;
+  background:#eef5ff;
+  border:1px solid var(--primary);
+}
+
+/* ---------------------------------------------------------
+   FORM PAGE (identical to v41)
+--------------------------------------------------------- */
+#formPage{
+  display:none;
+  background:#fff;
+  padding:20px;
+  border-radius:12px;
+  max-width:700px;
+  max-height:78vh;
+  margin:15px auto;
+  box-shadow:0 2px 6px rgba(0,0,0,.08);
+  overflow-y:auto;
+}
+#formPage label{
+  display:block;
+  font-weight:bold;
+  margin-top:10px;
+}
+
+/* Pagination */
+.pagination{
+  text-align:center;
+  margin-top:10px;
+}
+.pagination button{
+  margin:2px;
+  padding:6px 9px;
+  border-radius:6px;
+}
+.pagination button.current{
+  background:var(--primary);
+  color:white;
+  cursor:default;
+}
+
+/* ---------------------------------------------------------
+   FOOTER (updated to F3)
+--------------------------------------------------------- */
+footer{
+  margin-top:24px;
+  background:#fff;
+  border-top:2px solid #e9ecef;
+  color:#444;
+  padding:12px 16px;
+  text-align:center;
+}
+
+/* ---------------------------------------------------------
+   README POPUP (identical visuals to v41)
+--------------------------------------------------------- */
+#readmeModal{
+  display:none;
+  position:fixed;
+  top:8%;
+  left:50%;
+  transform:translateX(-50%);
+  width:90%;
+  max-width:850px;
+  background:white;
+  border:2px solid var(--primary);
+  border-radius:12px;
+  padding:18px;
+  box-shadow:0 8px 24px rgba(0,0,0,.2);
+  z-index:9999;
+  max-height:80vh;
+  overflow-y:auto;
+}
+#readmeModal pre{
+  white-space:pre-wrap;
+  font-family:Consolas,monospace;
+  background:#f8f9fa;
+  padding:12px;
+  border-radius:8px;
+  border:1px solid #e1e4e8;
+}
+#closeModal{
+  background:var(--primary);
+  color:white;
+  border:none;
+  padding:6px 10px;
+  border-radius:6px;
+  cursor:pointer;
+  float:right;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="title">Member Management</div>
+  <div class="version">v2.3.6-PWA • Offline Edition</div>
+  <div class="actions">
+    <button id="installBtn" hidden>Install App</button>
+    <button class="btn-secondary" onclick="viewReadMe()">📖 Read Me</button>
+  </div>
+</header>
+
+<div class="container">
+  <h2>Member List</h2>
+  <small class="helper">Upload an Excel file to begin. Use filters below to quickly find a member. Click a row to edit.</small>
+
+  <!-- Upload -->
+  <div>
+    <label><b>Upload Excel File:</b></label>
+    <input type="file" id="excelFile" accept=".xlsx,.xls">
+  </div>
+  <!-- Search Page -->
+  <div id="searchPage">
+    <div id="filters"></div>
+    <button class="btn-warning" onclick="clearFilters()">Clear Filters</button> <button onclick='resetHiddenFilters()'>Restore Filters</button>
+
+    <div id="recordCount"
+         style="font-weight:bold;color:var(--primary);margin-top:6px">
+    </div>
+
+    <div style="overflow-x:auto;max-height:420px;margin-top:10px;">
+      <table id="memberTable">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="pagination" id="pagination"></div>
+
+    <div style="margin-top:10px;">
+      <button class="btn-primary" onclick="addNewMember()">Add New Member</button>
+      <button class="btn-success" onclick="exportExcel()">Export Updated Excel</button>
+    </div>
+  </div>
+
+  <!-- Form Page (identical to v41 styling) -->
+  <div id="formPage">
+    <h3>Member Form</h3>
+    <div id="formFields"></div>
+
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn-success" onclick="addOrUpdateMember()">Add / Update Member</button>
+      <button class="btn-danger" onclick="deleteMember()">Delete Member</button>
+      <button class="btn-warning" onclick="clearForm()">Clear Form</button>
+      <button class="btn-secondary" onclick="backToSearch()">Back to Search</button>
+    </div>
+  </div>
+</div> <!-- end .container -->
+
+<footer>
+  Member Management v2.3.6-PWA • © 2025 Glen Carruthers
+  <div><a href="#" onclick="viewReadMe();return false;">View embedded README</a></div>
+</footer>
+
+<!-- ReadMe Modal -->
+<div id="readmeModal" role="dialog" aria-modal="true" aria-label="Read Me">
+  <button id="closeModal"
+          onclick="document.getElementById('readmeModal').style.display='none'">
+          Close ✖
+  </button>
+  <h3>📘 Member Management – Help Guide</h3>
+  <pre id="readmeContent"></pre>
+</div>
+
+<script>
+/* -----------------------------------------------------------
+   PWA INSTALL PROMPT (same as v41)
+----------------------------------------------------------- */
+let deferredPrompt;
+const installBtn = document.getElementById('installBtn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  installBtn.hidden = false;
+});
+
+installBtn?.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  installBtn.hidden = true;
+});
+/* -----------------------------------------------------------
+   CORE APP LOGIC (from v41-PWA, unchanged)
+----------------------------------------------------------- */
+
+let members = [];
+let filteredMembers = [];
+let tableColumns = [];
+let currentMemberIndex = -1;
+let filterValues = {};
+let currentPage = 1;
+let rowsPerPage = 25;
+
+/* README TEXT (updated version label only) */
+const readmeText = `Member Management
+----------------------------------
+
+Overview:
+This tool lets you view, filter, edit, and manage membership data directly from an Excel file in your browser. No installation or server connection is required.
+
+Features:
+• Excel Upload (.xlsx or .xls)
+• Dynamic Filters (case-insensitive)
+• Auto-Open Form for single matches
+• Record Counter and Pagination
+• Editable Form with Add / Update / Delete
+• Export Updated Excel file
+• View Read Me (popup help)
+• Download Read Me (save a local copy)
+
+Instructions:
+1. Open 'Member-Management_v2.3.6-PWA.html' or 'index.html' in your browser.
+2. Click "Upload Excel File" and select your member list.
+3. Use filters to search by any column.
+   - If one record matches, it opens automatically.
+   - If several match, click a row to open it.
+4. Add, edit, or delete members as needed.
+5. Use "Clear Filters" to reset your search.
+6. Click "Export Updated Excel" to download your updated data.
+7. "View Read Me" opens this guide on-screen.
+
+Notes:
+• All processing happens locally in your browser.
+• Your Excel file is never uploaded to a server.
+• Works best in Chrome or Edge.
+
+Version: v2.3.6-PWA
+© 2025 Glen Carruthers`;
+
+function viewReadMe() {
+  document.getElementById('readmeContent').textContent = readmeText;
+  document.getElementById('readmeModal').style.display = 'block';
+}
+
+function downloadReadMe() {
+  const blob = new Blob([readmeText], { type: 'text/plain' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'README.txt';
+  link.click();
+}
+
+/* -----------------------------------------------------------
+   EXCEL FILE LOADING
+----------------------------------------------------------- */
+
+document.getElementById('excelFile').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    const data = new Uint8Array(evt.target.result);
+
+    const wb = XLSX.read(data, { type: 'array' });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const raw = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+    if (raw.length === 0) {
+      alert('No data found');
+      return;
+    }
+
+    /* Normalize column names + trim values */
+    members = raw.map(r => {
+      const c = {};
+      Object.keys(r).forEach(k => {
+        c[k.trim()] = String(r[k]).trim();
+      });
+      return c;
+    });
+
+    tableColumns = Object.keys(members[0]);
+    filteredMembers = [...members];
+
+    buildFilters();
+    buildFormFields();
+    renderTable();
+  };
+
+  reader.readAsArrayBuffer(file);
+});
+
+/* -----------------------------------------------------------
+   FILTER BAR
+----------------------------------------------------------- */
+
+function buildFilters() {
+  const div = document.getElementById('filters');
+  div.innerHTML = '';
+  filterValues = {};
+
+  tableColumns.forEach(col => {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Filter by ' + col;
+
+    input.addEventListener('input', () => {
+      filterValues[col] = input.value.toLowerCase();
+      applyFilters();
+    });
+
+    div.appendChild(input);
+  });
+}
+
+function clearFilters() {
+  document.querySelectorAll('#filters input').forEach(i => i.value = '');
+  filterValues = {};
+  filteredMembers = [...members];
+  currentPage = 1;
+  renderTable();
+
+  document.getElementById('recordCount').textContent =
+    `Records Found: ${filteredMembers.length}`;
+}
+
+/* -----------------------------------------------------------
+   FILTER ENGINE
+----------------------------------------------------------- */
+
+function applyFilters() {
+  filteredMembers = members.filter(m =>
+    tableColumns.every(col => {
+      const val = (m[col] || '').toLowerCase();
+      const q = (filterValues[col] || '').trim();
+      return !q || val.includes(q);
+    })
+  );
+
+  currentPage = 1;
+  renderTable();
+
+  document.getElementById('recordCount').textContent =
+    `Records Found: ${filteredMembers.length}`;
+
+  /* Auto-open single match (v41 behaviour preserved) */
+  if (filteredMembers.length === 1)
+    openForm(filteredMembers[0]);
+}
+
+/* -----------------------------------------------------------
+   TABLE RENDERING
+----------------------------------------------------------- */
+
+function renderTable() {
+  const thead = document.querySelector('#memberTable thead');
+  const tbody = document.querySelector('#memberTable tbody');
+
+  thead.innerHTML = '';
+  tbody.innerHTML = '';
+
+  if (filteredMembers.length === 0) {
+    document.getElementById('recordCount').textContent = 'Records Found: 0';
+    return;
+  }
+
+  /* Headers */
+  const hr = document.createElement('tr');
+  tableColumns.forEach(col => {
+    const th = document.createElement('th');
+    th.textContent = col;
+    hr.appendChild(th);
+  });
+  thead.appendChild(hr);
+
+  /* Rows */
+  const start = (currentPage - 1) * rowsPerPage;
+  const end = start + rowsPerPage;
+
+  filteredMembers.slice(start, end).forEach(m => {
+    const tr = document.createElement('tr');
+
+    tableColumns.forEach(col => {
+      const td = document.createElement('td');
+      td.textContent = m[col];
+      tr.appendChild(td);
+    });
+
+    tr.addEventListener('click', () => openForm(m));
+    tbody.appendChild(tr);
+  });
+
+  renderPagination();
+
+  document.getElementById('recordCount').textContent =
+    `Records Found: ${filteredMembers.length}`;
+}
+
+/* -----------------------------------------------------------
+   PAGINATION
+----------------------------------------------------------- */
+
+function renderPagination() {
+  const div = document.getElementById('pagination');
+  div.innerHTML = '';
+
+  const total = Math.ceil(filteredMembers.length / rowsPerPage);
+  if (total <= 1) return;
+
+  for (let i = 1; i <= total; i++) {
+    const b = document.createElement('button');
+    b.textContent = i;
+
+    if (i === currentPage)
+      b.classList.add('current');
+
+    b.onclick = () => {
+      currentPage = i;
+      renderTable();
+    };
+
+    div.appendChild(b);
+  }
+}
+
+/* -----------------------------------------------------------
+   FORM PAGE
+----------------------------------------------------------- */
+
+function buildFormFields() {
+  const formDiv = document.getElementById('formFields');
+  formDiv.innerHTML = '';
+
+  tableColumns.forEach(col => {
+    const label = document.createElement('label');
+    label.textContent = col;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = 'form_' + col.replace(/\s+/g, '_');
+    input.style.width = '100%';
+
+    formDiv.appendChild(label);
+    formDiv.appendChild(input);
+  });
+}
+
+/* -----------------------------------------------------------
+   FORM OPEN / ADD / UPDATE / DELETE
+----------------------------------------------------------- */
+
+function openForm(m) {
+  currentMemberIndex =
+    members.findIndex(x => JSON.stringify(x) === JSON.stringify(m));
+
+  tableColumns.forEach(col => {
+    const input = document.getElementById('form_' + col.replace(/\s+/g, '_'));
+    if (input) input.value = m[col];
+  });
+
+  document.getElementById('searchPage').style.display = 'none';
+  document.getElementById('formPage').style.display = 'block';
+  document.getElementById('formPage').scrollTop = 0;
+}
+
+function addNewMember() {
+  clearForm();
+  currentMemberIndex = -1;
+  document.getElementById('searchPage').style.display = 'none';
+  document.getElementById('formPage').style.display = 'block';
+}
+
+function backToSearch() {
+  document.getElementById('formPage').style.display = 'none';
+  document.getElementById('searchPage').style.display = 'block';
+  clearFilters();
+}
+
+function clearForm() {
+  tableColumns.forEach(col => {
+    const input = document.getElementById('form_' + col.replace(/\s+/g, '_'));
+    if (input) input.value = '';
+  });
+  currentMemberIndex = -1;
+}
+
+function addOrUpdateMember() {
+  const m = {};
+  tableColumns.forEach(col => {
+    m[col] = document.getElementById(
+      'form_' + col.replace(/\s+/g, '_')
+    ).value;
+  });
+
+  if (currentMemberIndex >= 0)
+    members[currentMemberIndex] = m;
+  else
+    members.push(m);
+
+  filteredMembers = [...members];
+  renderTable();
+  backToSearch();
+}
+
+function deleteMember() {
+  if (currentMemberIndex >= 0 &&
+      confirm('Delete this record?')) {
+
+    members.splice(currentMemberIndex, 1);
+    filteredMembers = [...members];
+    renderTable();
+    backToSearch();
+  }
+}
+
+/* -----------------------------------------------------------
+   EXCEL EXPORT
+----------------------------------------------------------- */
+
+function exportExcel() {
+  const ws = XLSX.utils.json_to_sheet(members);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+
+  XLSX.writeFile(wb, 'updated_members.xlsx');
+}
+/* -----------------------------------------------------------
+   DYNAMIC MANIFEST (GitHub-safe)
+   - GitHub Pages blocks manifest.json unless linked correctly
+   - We inject it programmatically to ensure 100% reliability
+----------------------------------------------------------- */
+(function injectDynamicManifest() {
+  const manifest = {
+    name: "Member Management",
+    short_name: "Members",
+    description: "Offline member management tool (v2.3.6-PWA)",
+    start_url: "index.html",
+    display: "standalone",
+    background_color: "#ffffff",
+    theme_color: "#007bff",
+    icons: [
+      { src: "icon-192.png", sizes: "192x192", type: "image/png" },
+      { src: "icon-512.png", sizes: "512x512", type: "image/png" }
+    ]
+  };
+
+  const blob = new Blob([JSON.stringify(manifest)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+
+  const m = document.getElementById("manifestLink");
+  m.setAttribute("href", url);
+})();
+
+
+/* -----------------------------------------------------------
+   SERVICE WORKER (Auto-register)
+   GitHub Pages requires:
+   - SW must be in same folder as HTML
+   - No importScripts from other folders
+----------------------------------------------------------- */
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("./service-worker.js")
+      .catch(err => console.error("SW registration failed:", err));
+  });
+}
+/* -----------------------------------------------------------
+   SAMSUNG S24 KEYBOARD COLLAPSE FIX
+   Prevents accidental "app close" when the keyboard hides.
+   We force the viewport to remain stable.
+----------------------------------------------------------- */
+
+(function samsungKeyboardFix() {
+  let lastHeight = window.innerHeight;
+
+  window.addEventListener("resize", () => {
+    const current = window.innerHeight;
+
+    // If the height increases suddenly → keyboard dismissed
+    if (current > lastHeight) {
+      // Prevent the scroll area from collapsing the PWA
+      document.body.style.height = current + "px";
+      document.body.style.overflow = "auto";
+    }
+
+    lastHeight = current;
+  });
+})();
+
+/* -----------------------------------------------------------
+   END OF SCRIPT
+----------------------------------------------------------- */
+</script>
+
+
+<!-- v2.3.6-PWA Hide Filters Patch -->
+<script>
+let hiddenCols = JSON.parse(localStorage.getItem("hiddenCols") || "[]");
+function saveHidden(){ localStorage.setItem("hiddenCols", JSON.stringify(hiddenCols)); }
+
+const originalBuildFilters = buildFilters;
+buildFilters = function(){
+  const div = document.getElementById('filters');
+  div.innerHTML = '';
+  filterValues = {};
+
+  tableColumns.forEach(col => {
+    if(hiddenCols.includes(col)) return;
+
+    const wrap = document.createElement('div');
+    wrap.style.position = 'relative';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Filter by ' + col;
+    input.addEventListener('input', () => {
+      filterValues[col] = input.value.toLowerCase();
+      applyFilters();
+    });
+
+    const x = document.createElement('span');
+    x.textContent = '×';
+    x.style.position = 'absolute';
+    x.style.right = '6px';
+    x.style.top = '6px';
+    x.style.cursor = 'pointer';
+    x.style.color = 'red';
+    x.style.fontWeight = 'bold';
+    x.onclick = () => {
+      hiddenCols.push(col);
+      saveHidden();
+      buildFilters();
+      applyFilters();
+    };
+
+    wrap.appendChild(input);
+    wrap.appendChild(x);
+    div.appendChild(wrap);
+  });
+};
+
+function resetHiddenFilters(){
+  hiddenCols = [];
+  saveHidden();
+  buildFilters();
+  applyFilters();
+}
+</script>
+
+</body>
+</html>
